@@ -1,0 +1,4 @@
+opencv-python=4
+pyinput=1.4
+python=3.6
+virtualenv=16.4.3
