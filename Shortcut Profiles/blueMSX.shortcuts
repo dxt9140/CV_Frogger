@@ -2,7 +2,7 @@
 msxAudioSwitch=00911001
 spritesEnable=00530501
 frontSwitch=00910001
-quit=00030401
+quit=001B0101
 wavCapture=00760101
 screenCapture=002C0001
 screenCaptureUnfilteredSmall=007A2001
