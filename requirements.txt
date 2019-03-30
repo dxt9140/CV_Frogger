@@ -1,3 +1,6 @@
+configparser
+Pillow
+mss
 numpy
 opencv-python=4
 pyinput=1.4
