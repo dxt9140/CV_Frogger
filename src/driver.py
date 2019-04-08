@@ -3,7 +3,7 @@ Hopefully this becomes the main file for Frogger.
 """
 
 import configparser
-import os
+import os, shutil
 import sys
 import threading
 import time
@@ -29,6 +29,10 @@ class EmulatorThread(threading.Thread):
         except WindowsError:
             print("Exception thrown when opening pipe. Exiting.")
             return
+
+        # clear the screenshots
+        if os.path.isdir("../Screenshots"):
+            shutil.rmtree("../Screenshots")
 
         print("Got here")
         self.running = True
@@ -94,8 +98,17 @@ def main():
     kb.press(Key.f9.value)
     kb.release(Key.f9.value)
 
-    # screen_cap.run()
-    run(driver)
+    """
+    @TODO Might need to pause the game since screen shot might take a few seconds.
+    """
+
+    # get the game screen
+    # this will create a Screenshots folder and save the game screen as a .png file
+    kb.press(Key.print_screen.value)
+    kb.release(Key.print_screen.value)
+
+    # might need to pause here
+    run()
 
     # Sleep for a bit then exit the emulator
     time.sleep(1)
