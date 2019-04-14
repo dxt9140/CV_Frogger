@@ -8,9 +8,11 @@ import cv2
 import numpy as np
 import os
 from mss import mss
+from src.definitions import OS
+from src.definitions import TEMPLATE_DIR
 
 
-def run():
+def run(driver, Emulator):
     # screen_cap = mss()
     # emu_region = {'top': driver.window_top, 'left': driver.window_left,
     #               'width': driver.window_width, 'height': driver.window_height}
@@ -28,11 +30,25 @@ def run():
     #
     # cv2.destroyAllWindows()
 
+    # get the game screen
+    # this will create a Screenshots folder and save the game screen as a .png file
+    Emulator.take_screenshot()
+
     # grab the screen shot and delete when it is done
     img = '../Screenshots/Frogger_1983_Konami_J_0000.png'
 
-    templates = ['../Templates/Frog.png', '../Templates/Frog_Left.png', '../Templates/Frog_Right.png',
-                 '../Templates/Frog_Down.png']
+    templates = None
+    if OS in ['Linux', 'Darwin']:
+        templates = ['../Templates/Frog.png', '../Templates/Frog_Left.png', '../Templates/Frog_Right.png',
+                     '../Templates/Frog_Down.png']
+    elif OS in ['Windows']:
+        templates = [TEMPLATE_DIR + 'Frog.png', TEMPLATE_DIR + 'Frog_Left.png', TEMPLATE_DIR + 'Frog_Right.png',
+                     TEMPLATE_DIR + 'Frog_Down.png']
+
+    if templates is None:
+        return
+    else:
+        print(templates)
 
     found_frog = False
 
@@ -82,7 +98,17 @@ def remove_screenshot():
 
 
 def template_match(img, template):
-    img_rbg_org = cv2.imread(img)
+    """
+    @TODO Can you briefly describe what the return values are?
+    :param img:
+    :param template:
+    :return:
+    """
+
+    if type(img) is str:
+        img_rbg_org = cv2.imread(img)
+    else:
+        img_rbg_org = img
 
     # crop the score section
     img_rbg = img_rbg_org[48:432, 48:400]
@@ -189,3 +215,55 @@ def find_object(object):
 
     return '_'
 
+
+def template_match_minimal(img, template):
+    if type(img) is str:
+        img = cv2.imread(img)
+
+    if type(template) is str:
+        template = cv2.imread(template)
+
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    t_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+
+    res = cv2.matchTemplate(img_gray, t_gray, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.8
+    loc = np.where(res >= threshold)
+
+    for pt in zip(*loc[::-1]):
+        return pt, img, template
+
+    return 0, 0, 0
+
+
+def find_frogger_main_menu(driver):
+    template = TEMPLATE_DIR + "main_menu.png"
+    template = cv2.imread(template)
+
+    screen_cap = mss()
+    emu_region = {'top': driver.window_top+150, 'left': driver.window_left+75,
+                  'width': driver.window_width, 'height': driver.window_height}
+
+    cv2.namedWindow('Agent Capture', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('Agent Capture', driver.window_width, driver.window_height)
+
+    while 1:
+        img = np.array(screen_cap.grab(emu_region))
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # cv2.resize(img, (800, 800))
+        # cv2.imshow('Agent Capture', img)
+        # if cv2.waitKey(10) == ord('q'):
+        #    break
+
+        pt, img_rgb, t = template_match_minimal(img, template)
+
+        if img_rgb is 0:
+            img_rgb = np.ones_like(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+        cv2.imshow('Agent Capture', img_rgb)
+        cv2.waitKey(1)
+
+        if pt:
+            break
+
+    cv2.destroyAllWindows()
+    return True

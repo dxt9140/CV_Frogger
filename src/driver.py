@@ -10,6 +10,7 @@ import time
 import subprocess
 from src.definitions import *
 from src.screen_cap import run
+from src.screen_cap import find_frogger_main_menu
 from pynput.keyboard import Controller, Key
 import pynput.mouse as ms
 
@@ -55,8 +56,18 @@ class EmulatorThread(threading.Thread):
     def is_stopped(self):
         return self._stop_event.is_set()
 
+    def take_screenshot(self):
+        self.kb.press(Key.print_screen.value)
+        self.kb.release(Key.print_screen.value)
 
-class Driver:
+    def send_keys(self, keys):
+        for key in keys:
+            self.kb.press(key)
+        for key in range(len(keys)-1, 0, -1):
+            self.kb.release(key)
+
+
+class WindowsDriver:
 
     def __init__(self):
         cf_parser = configparser.ConfigParser()
@@ -75,7 +86,14 @@ def main():
     """
     kb = Controller()
 
-    driver = Driver()
+    driver = None
+    if OS in ['Windows']:
+        driver = WindowsDriver()
+    elif OS in ['Linux', 'Darwin']:
+        _=_
+        # driver = LinuxDriver()
+    else:
+        sys.exit(-1)
 
     # Execute MSX emulator
     Emulator = EmulatorThread(kb)
@@ -101,14 +119,24 @@ def main():
     """
     @TODO Might need to pause the game since screen shot might take a few seconds.
     """
+    find_frogger_main_menu(driver)
 
-    # get the game screen
-    # this will create a Screenshots folder and save the game screen as a .png file
-    kb.press(Key.print_screen.value)
-    kb.release(Key.print_screen.value)
+    for i in range(20):
+        Emulator.send_keys([Key.down.value])
+        time.sleep(0.5)
+        Emulator.send_keys([Key.down.value])
+        time.sleep(0.5)
+        Emulator.send_keys([Key.up.value])
+        time.sleep(0.5)
+        Emulator.send_keys([Key.up.value])
+        time.sleep(0.5)
 
+    """
+    @TODO getting this screenshot should be in screen_cap.py at the top of the run method.
+    Before run is called, make sure we get into the Frogger game
+    """
     # might need to pause here
-    run()
+    run(driver, Emulator)
 
     # Sleep for a bit then exit the emulator
     time.sleep(1)
