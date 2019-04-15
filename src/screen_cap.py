@@ -99,10 +99,9 @@ def remove_screenshot():
 
 def template_match(img, template):
     """
-    @TODO Can you briefly describe what the return values are?
-    :param img:
-    :param template:
-    :return:
+    :param img: input screen
+    :param template: template to match
+    :return: points which have greater than 0.8 threshold, input screen, template
     """
 
     if type(img) is str:
