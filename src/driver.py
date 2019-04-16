@@ -8,9 +8,11 @@ import sys
 import threading
 import time
 import subprocess
+import cv2
 from src.definitions import *
 from src.screen_cap import run
 from src.screen_cap import find_frogger_main_menu
+from src.screen_cap import find_frogger_game_screen
 from pynput.keyboard import Controller, Key
 import pynput.mouse as ms
 
@@ -74,10 +76,15 @@ class WindowsDriver:
         path = PROJECT_DIR + '\\bluemsx.ini'
         cf_parser.read(path, encoding='utf-8')
 
-        self.window_left = int(cf_parser['config']['video.windowX'])
-        self.window_top = int(cf_parser['config']['video.windowY'])
+        self.window_left = int(cf_parser['config']['video.windowX']) + 75
+        self.window_top = int(cf_parser['config']['video.windowY']) + 150
         self.window_width = int(cf_parser['config']['video.fullscreen.width'])
         self.window_height = int(cf_parser['config']['video.fullscreen.height'])
+
+        cv2.namedWindow('Agent Capture', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Agent Capture', self.window_width, self.window_height)
+
+        self.win_name = 'Agent Capture'
 
 
 def main():
@@ -116,20 +123,26 @@ def main():
     kb.press(Key.f9.value)
     kb.release(Key.f9.value)
 
-    """
-    @TODO Might need to pause the game since screen shot might take a few seconds.
-    """
+    print("Waiting for main menu")
     find_frogger_main_menu(driver)
 
-    for i in range(20):
-        Emulator.send_keys([Key.down.value])
-        time.sleep(0.5)
-        Emulator.send_keys([Key.down.value])
-        time.sleep(0.5)
-        Emulator.send_keys([Key.up.value])
-        time.sleep(0.5)
-        Emulator.send_keys([Key.up.value])
-        time.sleep(0.5)
+    time.sleep(1)
+    # Option 3 in the main menu is
+    Emulator.send_keys(['3'])
+
+    print("Waiting for game screen")
+    find_frogger_game_screen(driver)
+
+    print("Found game screen")
+    for i in range(10):
+        Emulator.send_keys([Key.left.value])
+        time.sleep(1)
+        Emulator.send_keys([Key.left.value])
+        time.sleep(1)
+        Emulator.send_keys([Key.right.value])
+        time.sleep(1)
+        Emulator.send_keys([Key.right.value])
+        time.sleep(1)
 
     """
     @TODO getting this screenshot should be in screen_cap.py at the top of the run method.
@@ -144,6 +157,7 @@ def main():
     Emulator.stop()
 
     Emulator.join()
+    cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
