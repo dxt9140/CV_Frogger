@@ -10,7 +10,7 @@ import os
 from mss import mss
 from src.definitions import OS
 from src.definitions import TEMPLATE_DIR
-
+import PIL
 
 def run(driver, Emulator):
     # screen_cap = mss()
@@ -232,7 +232,24 @@ def template_match_minimal(img, template):
     for pt in zip(*loc[::-1]):
         return pt, img, template
 
-    return 0, 0, 0
+    return 0, img, template
+
+
+def template_match_minimal_color(img, template):
+    if type(img) is str:
+        img = cv2.imread(img)
+
+    if type(template) is str:
+        template = cv2.imread(template)
+
+    res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.8
+    loc = np.where(res >= threshold)
+
+    for pt in zip(*loc[::-1]):
+        return pt, img, template
+
+    return 0, img, template
 
 
 def find_frogger_main_menu(driver):
@@ -240,29 +257,42 @@ def find_frogger_main_menu(driver):
     template = cv2.imread(template)
 
     screen_cap = mss()
-    emu_region = {'top': driver.window_top+150, 'left': driver.window_left+75,
+    emu_region = {'top': driver.window_top, 'left': driver.window_left,
                   'width': driver.window_width, 'height': driver.window_height}
-
-    cv2.namedWindow('Agent Capture', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Agent Capture', driver.window_width, driver.window_height)
 
     while 1:
         img = np.array(screen_cap.grab(emu_region))
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # cv2.resize(img, (800, 800))
-        # cv2.imshow('Agent Capture', img)
-        # if cv2.waitKey(10) == ord('q'):
-        #    break
 
         pt, img_rgb, t = template_match_minimal(img, template)
 
-        if img_rgb is 0:
-            img_rgb = np.ones_like(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
-        cv2.imshow('Agent Capture', img_rgb)
+        cv2.imshow(driver.win_name, img_rgb)
         cv2.waitKey(1)
 
         if pt:
             break
 
-    cv2.destroyAllWindows()
+    return True
+
+
+def find_frogger_game_screen(driver):
+    # Actually, let's jsut find the frog
+    template = TEMPLATE_DIR + 'Time_Box.png'
+    template = cv2.imread(template)
+
+    screen_cap = mss()
+    emu_region = {'top': driver.window_top, 'left': driver.window_left,
+                  'width': driver.window_width, 'height': driver.window_height}
+
+    while 1:
+        img = np.array(screen_cap.grab(emu_region))
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
+        pt, img_rgb, t = template_match_minimal_color(img, template)
+
+        cv2.imshow(driver.win_name, img_rgb)
+        cv2.waitKey(1)
+
+        if pt:
+            break
+
     return True

@@ -37,7 +37,6 @@ class EmulatorThread(threading.Thread):
         if os.path.isdir("../Screenshots"):
             shutil.rmtree("../Screenshots")
 
-        print("Got here")
         self.running = True
 
         while not self.should_stop:
@@ -65,8 +64,13 @@ class EmulatorThread(threading.Thread):
     def send_keys(self, keys):
         for key in keys:
             self.kb.press(key)
-        for key in range(len(keys)-1, 0, -1):
-            self.kb.release(key)
+
+        if len(keys) > 1:
+            for key in keys.reverse():
+                self.kb.release(key)
+        else:
+            for key in keys:
+                self.kb.release(key)
 
 
 class WindowsDriver:
@@ -127,21 +131,22 @@ def main():
     find_frogger_main_menu(driver)
 
     time.sleep(1)
-    # Option 3 in the main menu is
+    # Option 3 in the main menu is Single Player with KB
     Emulator.send_keys(['3'])
 
     print("Waiting for game screen")
     find_frogger_game_screen(driver)
+    time.sleep(2)
 
     print("Found game screen")
     for i in range(10):
-        Emulator.send_keys([Key.left.value])
+        Emulator.send_keys(['a'])
         time.sleep(1)
-        Emulator.send_keys([Key.left.value])
+        Emulator.send_keys(['a'])
         time.sleep(1)
-        Emulator.send_keys([Key.right.value])
+        Emulator.send_keys(['d'])
         time.sleep(1)
-        Emulator.send_keys([Key.right.value])
+        Emulator.send_keys(['d'])
         time.sleep(1)
 
     """
