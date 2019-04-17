@@ -17,7 +17,7 @@ from pynput.keyboard import Controller, Key
 import pynput.mouse as ms
 
 
-class EmulatorThread(threading.Thread):
+class BlueMSX(threading.Thread):
 
     def __init__(self, kb):
         threading.Thread.__init__(self)
@@ -32,6 +32,57 @@ class EmulatorThread(threading.Thread):
         except WindowsError:
             print("Exception thrown when opening pipe. Exiting.")
             return
+
+        # clear the screenshots
+        if os.path.isdir("../Screenshots"):
+            shutil.rmtree("../Screenshots")
+
+        self.running = True
+
+        while not self.should_stop:
+            continue
+
+        if self.should_stop and not self.is_stopped():
+            self.kb.press(Key(Key.shift))
+            self.kb.press(Key(Key.esc))
+            self.kb.release(Key(Key.esc))
+            self.kb.release(Key(Key.shift))
+        self._stop_event.set()
+
+        self.running = False
+
+    def stop(self):
+        self.should_stop = True
+
+    def is_stopped(self):
+        return self._stop_event.is_set()
+
+    def take_screenshot(self):
+        self.kb.press(Key.print_screen.value)
+        self.kb.release(Key.print_screen.value)
+
+    def send_keys(self, keys):
+        for key in keys:
+            self.kb.press(key)
+
+        if len(keys) > 1:
+            for key in keys.reverse():
+                self.kb.release(key)
+        else:
+            for key in keys:
+                self.kb.release(key)
+
+
+class OpenMSX(threading.Thread):
+
+    def __init__(self, kb):
+        threading.Thread.__init__(self)
+        self.running = False
+        self.kb = kb
+        self.should_stop = False
+
+    def run(self):
+        pipe = subprocess.Popen("openmsx -cart Frogger*")
 
         # clear the screenshots
         if os.path.isdir("../Screenshots"):
@@ -91,23 +142,41 @@ class WindowsDriver:
         self.win_name = 'Agent Capture'
 
 
+class LinuxDriver:
+
+    def __init__(self):
+        self.window_width = 640
+        self.window_height = 480
+
+        cv2.namedWindow('Agent Capture', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Agent Capture', self.window_width, self.window_height)
+
+        self.win_name = 'Agent Capture'
+
+    def find_screen(self):
+        _ = None
+
+
 def main():
     """
     @TODO Determine OS and begin Frogger automatically depending on the OS
     """
     kb = Controller()
 
-    driver = None
     if OS in ['Windows']:
         driver = WindowsDriver()
     elif OS in ['Linux', 'Darwin']:
-        _=_
-        # driver = LinuxDriver()
+        driver = LinuxDriver()
     else:
         sys.exit(-1)
 
     # Execute MSX emulator
-    Emulator = EmulatorThread(kb)
+    if OS in ['Windows']:
+        Emulator = BlueMSX(kb)
+    elif OS in ['Linux']:
+        Emulator = OpenMSX(kb)
+    else:
+        sys.exit(-1)
     Emulator.start()
 
     # Sleep for a sec to let the emulator boot
