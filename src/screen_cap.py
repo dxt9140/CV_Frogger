@@ -6,6 +6,7 @@ File for screen capture.
 
 import cv2
 import numpy as np
+import math
 import os
 from mss import mss
 from definitions import OS
@@ -13,6 +14,8 @@ from definitions import TEMPLATE_DIR
 import PIL
 from pynput.keyboard import Controller, Key
 
+def dist(p1, p2):
+    return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
 
 def run(driver, Emulator):
     screen_cap = mss()
@@ -99,14 +102,27 @@ def run(driver, Emulator):
                 # return '_', '_', '_', '_'
 
         for template in surfaces:
-            pt, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
-            if pt:
-                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 2)
+            pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
+            if pts:
+                pts_used = []
+                min_dist = 15
+                for pt in pts:
+                    distances = [dist(pt, p) < min_dist for p in pts_used]
+                    pts_used.append(pt)
+                    if any(distances):
+                        continue
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 2)
 
         for template in enemies:
             pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
             if pts:
+                pts_used = []
+                min_dist = 15
                 for pt in pts:
+                    distances = [dist(pt, p) < 5 for p in pts_used]
+                    pts_used.append(pt)
+                    if any(distances):
+                        continue
                     cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 2)
         cv2.imshow(driver.win_name, display)
         cv2.waitKey(1)
