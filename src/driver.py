@@ -9,10 +9,10 @@ import threading
 import time
 import subprocess
 import cv2
-from src.definitions import *
-from src.screen_cap import run
-from src.screen_cap import find_frogger_main_menu
-from src.screen_cap import find_frogger_game_screen
+from definitions import *
+from screen_cap import run
+from screen_cap import find_frogger_main_menu
+from screen_cap import find_frogger_game_screen
 from pynput.keyboard import Controller, Key
 import pyautogui as pg
 import pynput.mouse as ms

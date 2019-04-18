@@ -8,8 +8,8 @@ import cv2
 import numpy as np
 import os
 from mss import mss
-from src.definitions import OS
-from src.definitions import TEMPLATE_DIR
+from definitions import OS
+from definitions import TEMPLATE_DIR
 import PIL
 from pynput.keyboard import Controller, Key
 
@@ -63,13 +63,13 @@ def run(driver, Emulator):
         # find the frog (it can be facing up, left, right and down)
         for template in frogs:
             print(TEMPLATE_DIR + template)
-            pt, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + template)
-            if pt != 0:
-                for p in pt:
-                    print(p)
-                    cv2.rectangle(display, p-10, p+10, (255, 0, 0), 2)
-                    up, down, left, right = match_neighbors(p, img_rbg, t)
-                    found_frog = True
+            pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + template)
+            pts = list(pts)
+            if len(pts) != 0:
+                pt = pts[0]
+                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 0), -1)
+                up, down, left, right = match_neighbors(pt, img_rbg, t)
+                found_frog = True
                 break
 
         # found the frog, find what it on its up, down, right and left (return in this sequence)
@@ -84,10 +84,12 @@ def run(driver, Emulator):
         else:
             # no frog found, there might be a dead frog
             # if it is a dead frog, it will return Dead Frog and _ for others
-            pt, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + 'Dead_Frog.png')
-            if pt != 0:
-                print("Dead Frog Found")
-                cv2.rectangle(display, pt-10, pt+10, (0, 0, 0), 2)
+            pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + 'Dead_Frog.png')
+            pts = list(pts)
+            if len(pts) != 0:
+                pt = pts[0]
+                print("Dead Frog Found at " + str(pt))
+                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 0), 2)
                 # remove_screenshot()
                 # return 'Dead Frog', '_', '_', '_'
             else:
@@ -99,14 +101,13 @@ def run(driver, Emulator):
         for template in surfaces:
             pt, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
             if pt:
-                cv2.rectangle(display, pt-10, pt+10, (0, 255, 0), 2)
+                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 2)
 
         for template in enemies:
-            pt, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
-            if pt:
-                for p in pt:
-                    cv2.rectangle(display, p, pt+10, (0, 0, 255), 2)
-
+            pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
+            if pts:
+                for pt in pts:
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 2)
         cv2.imshow(driver.win_name, display)
         cv2.waitKey(1)
 
@@ -137,7 +138,7 @@ def template_match(img, template):
 
     t = cv2.imread(template, 0)
     res = cv2.matchTemplate(img_gray, t, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.8
+    threshold = 0.6
     loc = np.where(res >= threshold)
 
     for pt in zip(*loc[::-1]):
@@ -149,7 +150,8 @@ def template_match(img, template):
 # find what is on the up, down, left and right
 # if nothing is found it will return _
 def match_neighbors(pt, img_rbg, t):
-    w, h = t.shape[::-1]
+    print(t.shape)
+    w, h, b = t.shape
 
     # cv2.rectangle(img_rbg, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
 
@@ -216,7 +218,7 @@ def find_object(object):
         t = cv2.cvtColor(object, cv2.COLOR_BGR2GRAY)
 
         res = cv2.matchTemplate(img_gray, t, cv2.TM_CCOEFF_NORMED)
-        threshold = 0.8
+        threshold = 0.6
         loc = np.where(res >= threshold)
 
         for pt in zip(*loc[::-1]):
@@ -248,7 +250,7 @@ def template_match_minimal(img, template):
     t_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
     res = cv2.matchTemplate(img_gray, t_gray, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.8
+    threshold = 0.6
     loc = np.where(res >= threshold)
 
     pt = zip(*loc[::-1])
@@ -265,7 +267,7 @@ def template_match_minimal_color(img, template):
         template = cv2.imread(template)
 
     res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.8
+    threshold = 0.6
     loc = np.where(res >= threshold)
 
     for pt in zip(*loc[::-1]):
