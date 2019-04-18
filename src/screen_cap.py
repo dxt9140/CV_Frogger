@@ -11,14 +11,14 @@ from mss import mss
 from src.definitions import OS
 from src.definitions import TEMPLATE_DIR
 import PIL
+from pynput.keyboard import Controller, Key
+
 
 def run(driver, Emulator):
-    # screen_cap = mss()
-    # emu_region = {'top': driver.window_top, 'left': driver.window_left,
-    #               'width': driver.window_width, 'height': driver.window_height}
+    screen_cap = mss()
+    emu_region = {'top': driver.window_top, 'left': driver.window_left,
+                  'width': driver.window_width, 'height': driver.window_height}
     #
-    # cv2.namedWindow('Agent Capture', cv2.WINDOW_NORMAL)
-    # # cv2.resizeWindow('Agent Capture', driver.window_width, driver.window_height)
     #
     # while 1:
     #     img = np.array(screen_cap.grab(emu_region))
@@ -32,64 +32,86 @@ def run(driver, Emulator):
 
     # get the game screen
     # this will create a Screenshots folder and save the game screen as a .png file
-    Emulator.take_screenshot()
+    # Emulator.take_screenshot()
 
     # grab the screen shot and delete when it is done
-    img = '../Screenshots/Frogger_1983_Konami_J_0000.png'
+    # img = '../Screenshots/Frogger_1983_Konami_J_0000.png'
 
-    templates = None
-    if OS in ['Linux', 'Darwin']:
-        templates = ['../Templates/Frog.png', '../Templates/Frog_Left.png', '../Templates/Frog_Right.png',
-                     '../Templates/Frog_Down.png']
-    elif OS in ['Windows']:
-        templates = [TEMPLATE_DIR + 'Frog.png', TEMPLATE_DIR + 'Frog_Left.png', TEMPLATE_DIR + 'Frog_Right.png',
-                     TEMPLATE_DIR + 'Frog_Down.png']
+    # if OS in ['Linux', 'Darwin', 'Windows']:
+    frogs = ['Frog.png', 'Frog_Left.png', 'Frog_Right.png', 'Frog_Down.png']
+    # elif OS in ['Windows']:
+    #    templates = [TEMPLATE_DIR + 'Frog.png', TEMPLATE_DIR + 'Frog_Left.png', TEMPLATE_DIR + 'Frog_Right.png',
+    # TEMPLATE_DIR + 'Frog_Down.png']
 
-    if templates is None:
-        return
-    else:
-        print(templates)
+    enemies = ['Car1.png', 'Car2.png', 'Car3.png', 'Car4.png', 'Danger.png']
+    surfaces = ['Wall.png', 'Start.png', 'Road.png', 'Gray_Toad.png']
 
     found_frog = False
 
-    up = ''
-    down = ''
-    left = ''
-    right = ''
+    while 1:
+        img = cv2.cvtColor(np.array(screen_cap.grab(emu_region)), cv2.COLOR_BGRA2BGR)
+        display = img.copy()
 
-    # find the frog (it can be facing up, left, right and down)
-    for template in templates:
-        pt, img_rbg, t = template_match(img, template)
-        if pt != 0:
-            up, down, left, right = match_neighbors(pt, img_rbg, t)
-            found_frog = True
-            break
+        # pause
+        Emulator.send_keys([Key.shift, Key.f9])
 
-    # found the frog, find what it on its up, down, right and left (return in this sequence)
-    # if there aren't any object or it cannot be matched, it will return _
-    if found_frog:
-        print("Up\t" + up)
-        print("Down\t" + down)
-        print("Right\t" + right)
-        print("Left\t" + left)
-        remove_screenshot()
-        return up, down, right, left
-    else:
-        # no frog found, there might be a dead frog
-        # if it is a dead frog, it will return Dead Frog and _ for others
-        pt, img_rbg, t = template_match(img, '../Templates/Dead_Frog.png')
-        if pt != 0:
-            print("Dead Frog Found")
-            remove_screenshot()
-            return 'Dead Frog', '_', '_', '_'
+        up = ''
+        down = ''
+        left = ''
+        right = ''
+
+        # find the frog (it can be facing up, left, right and down)
+        for template in frogs:
+            print(TEMPLATE_DIR + template)
+            pt, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + template)
+            if pt != 0:
+                for p in pt:
+                    print(p)
+                    cv2.rectangle(display, p-10, p+10, (255, 0, 0), 2)
+                    up, down, left, right = match_neighbors(p, img_rbg, t)
+                    found_frog = True
+                break
+
+        # found the frog, find what it on its up, down, right and left (return in this sequence)
+        # if there aren't any object or it cannot be matched, it will return _
+        if found_frog:
+            print("Up\t" + up)
+            print("Down\t" + down)
+            print("Right\t" + right)
+            print("Left\t" + left)
+            # remove_screenshot()
+            # return up, down, right, left
         else:
-            # no frog detected, return all _
-            print("No Frog Found")
-            remove_screenshot()
-            return '_', '_', '_', '_'
+            # no frog found, there might be a dead frog
+            # if it is a dead frog, it will return Dead Frog and _ for others
+            pt, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + 'Dead_Frog.png')
+            if pt != 0:
+                print("Dead Frog Found")
+                cv2.rectangle(display, pt-10, pt+10, (0, 0, 0), 2)
+                # remove_screenshot()
+                # return 'Dead Frog', '_', '_', '_'
+            else:
+                # no frog detected, return all _
+                print("No Frog Found")
+                # remove_screenshot()
+                # return '_', '_', '_', '_'
 
-    # cv2.imshow('Template Matching', img_rbg)
-    # cv2.waitKey(0)
+        for template in surfaces:
+            pt, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
+            if pt:
+                cv2.rectangle(display, pt-10, pt+10, (0, 255, 0), 2)
+
+        for template in enemies:
+            pt, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
+            if pt:
+                for p in pt:
+                    cv2.rectangle(display, p, pt+10, (0, 0, 255), 2)
+
+        cv2.imshow(driver.win_name, display)
+        cv2.waitKey(1)
+
+        # play
+        Emulator.send_keys([Key.shift, Key.f9])
 
 
 def remove_screenshot():
@@ -229,10 +251,10 @@ def template_match_minimal(img, template):
     threshold = 0.8
     loc = np.where(res >= threshold)
 
-    for pt in zip(*loc[::-1]):
-        return pt, img, template
-
-    return 0, img, template
+    pt = zip(*loc[::-1])
+    return pt, img, template
+    # for pt in zip(*loc[::-1]):
+    #   return pt, img, template
 
 
 def template_match_minimal_color(img, template):
