@@ -89,6 +89,7 @@ def main():
         timer += 1
 
     find_emulator_screen(driver)
+    time.sleep(1)
 
     # Start the emulator.
     print("Press F9 to start the emulator")
