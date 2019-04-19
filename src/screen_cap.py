@@ -6,6 +6,7 @@ File for screen capture.
 
 import cv2
 import numpy as np
+import math
 import os
 from mss import mss
 from definitions import OS
@@ -13,6 +14,8 @@ from definitions import TEMPLATE_DIR
 import PIL
 from pynput.keyboard import Controller, Key
 
+def dist(p1, p2):
+    return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
 
 def run(driver, Emulator):
     screen_cap = mss()
@@ -99,33 +102,28 @@ def run(driver, Emulator):
                 # return '_', '_', '_', '_'
 
         for template in surfaces:
-            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
+            pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
             if pts:
-                uniques = get_all_upper_lefts(pts, t.shape)
-                for pt in uniques:
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 1)
+                pts_used = []
+                min_dist = 15
+                for pt in pts:
+                    distances = [dist(pt, p) < min_dist for p in pts_used]
+                    pts_used.append(pt)
+                    if any(distances):
+                        continue
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 2)
 
         for template in enemies:
             pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
             if pts:
-                # TODO Template match returns multiple points for same instance of enemy. Can we trim
-                # the templates? Also, consider using the alpha channel
-
-                # TODO Update: Alpha channel doesnt play with with opencv. Maybe we can figure out if a returned
-                # point has already been outlined if it is within the bounds of the template +/- 5px or so
-
-                uniques = get_all_upper_lefts(pts, t.shape)
-                for pt in uniques:
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 1)
-
-        for template in goal:
-            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
-
-            if pts:
-                uniques = get_all_upper_lefts(pts, t.shape)
-                for pt in uniques:
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 255), 1)
-
+                pts_used = []
+                min_dist = 15
+                for pt in pts:
+                    distances = [dist(pt, p) < 5 for p in pts_used]
+                    pts_used.append(pt)
+                    if any(distances):
+                        continue
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 2)
         cv2.imshow(driver.win_name, display)
         cv2.waitKey(1)
 
@@ -307,7 +305,7 @@ def find_object(object):
     return '_'
 
 
-def template_match_minimal(img, template, threshold=0.6):
+def template_match_minimal(img, template):
     if type(img) is str:
         img = cv2.imread(img)
 
@@ -318,15 +316,16 @@ def template_match_minimal(img, template, threshold=0.6):
     t_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
     res = cv2.matchTemplate(img_gray, t_gray, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.6
     loc = np.where(res >= threshold)
 
     pt = zip(*loc[::-1])
-    return list(pt), img, template
+    return pt, img, template
     # for pt in zip(*loc[::-1]):
     #   return pt, img, template
 
 
-def template_match_minimal_color(img, template, threshold=0.8):
+def template_match_minimal_color(img, template):
     if type(img) is str:
         img = cv2.imread(img)
 
@@ -334,6 +333,7 @@ def template_match_minimal_color(img, template, threshold=0.8):
         template = cv2.imread(template)
 
     res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.6
     loc = np.where(res >= threshold)
 
     for pt in zip(*loc[::-1]):
@@ -390,6 +390,9 @@ def find_object_with_templates(driver, templates, color=False, threshold=0.8):
 
         cv2.imshow(driver.win_name, img)
         cv2.waitKey(1)
+
+        if pt:
+            break
 
     return True
 
