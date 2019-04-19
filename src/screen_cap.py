@@ -45,6 +45,7 @@ def run(driver, Emulator):
 
     enemies = ['Car1.png', 'Car2.png', 'Car3.png', 'Car4.png', 'Danger.png']
     surfaces = ['Wall.png', 'Start.png', 'Road.png', 'Gray_Toad.png']
+    goal = ['Goal.png']
 
     found_frog = False
 
@@ -53,7 +54,7 @@ def run(driver, Emulator):
         display = img.copy()
 
         # pause
-        Emulator.send_keys([Key.shift, Key.f9])
+        Emulator.pause()
 
         up = ''
         down = ''
@@ -62,34 +63,33 @@ def run(driver, Emulator):
 
         # find the frog (it can be facing up, left, right and down)
         for template in frogs:
-            print(TEMPLATE_DIR + template)
-            pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + template)
+            pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + template, threshold=0.6)
             pts = list(pts)
             if len(pts) != 0:
                 pt = pts[0]
                 cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 0), -1)
-                up, down, left, right = match_neighbors(pt, img_rbg, t)
+                # up, down, left, right = match_neighbors(pt, img_rbg, t)
                 found_frog = True
                 break
 
         # found the frog, find what it on its up, down, right and left (return in this sequence)
         # if there aren't any object or it cannot be matched, it will return _
         if found_frog:
-            print("Up\t" + up)
-            print("Down\t" + down)
-            print("Right\t" + right)
-            print("Left\t" + left)
+            print("Found frog!")
+            # print("Up\t" + up)
+            # print("Down\t" + down)
+            # print("Right\t" + right)
+            # print("Left\t" + left)
             # remove_screenshot()
             # return up, down, right, left
         else:
             # no frog found, there might be a dead frog
             # if it is a dead frog, it will return Dead Frog and _ for others
             pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + 'Dead_Frog.png')
-            pts = list(pts)
-            if len(pts) != 0:
+            if pts:
                 pt = pts[0]
                 print("Dead Frog Found at " + str(pt))
-                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 0), 2)
+                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 0), 1)
                 # remove_screenshot()
                 # return 'Dead Frog', '_', '_', '_'
             else:
@@ -99,20 +99,88 @@ def run(driver, Emulator):
                 # return '_', '_', '_', '_'
 
         for template in surfaces:
-            pt, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
-            if pt:
-                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 2)
+            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
+            if pts:
+                uniques = get_all_upper_lefts(pts, t.shape)
+                for pt in uniques:
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 1)
 
         for template in enemies:
             pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
             if pts:
-                for pt in pts:
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 2)
+                # TODO Template match returns multiple points for same instance of enemy. Can we trim
+                # the templates? Also, consider using the alpha channel
+
+                # TODO Update: Alpha channel doesnt play with with opencv. Maybe we can figure out if a returned
+                # point has already been outlined if it is within the bounds of the template +/- 5px or so
+
+                uniques = get_all_upper_lefts(pts, t.shape)
+                for pt in uniques:
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 1)
+
+        for template in goal:
+            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template)
+
+            if pts:
+                uniques = get_all_upper_lefts(pts, t.shape)
+                for pt in uniques:
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 255), 1)
+
         cv2.imshow(driver.win_name, display)
         cv2.waitKey(1)
 
         # play
-        Emulator.send_keys([Key.shift, Key.f9])
+        Emulator.pause()
+        print()
+
+
+def get_all_upper_lefts(pts, shape):
+    # For all points in a set, find the upper left of each instance with $shape
+
+    # Handles case where input pts is only 1 tuple
+    if type(pts) is tuple:
+        l = list()
+        l.append(pts)
+        processing = l
+    else:
+        processing = pts
+
+    matches = list()
+
+    while processing:
+        keep = list()
+        max = top_left(processing)
+        matches.append(max)
+        for p in processing:
+            # If x is inside the x boundary
+            if p[0] > max[0] and p[0] < max[0] + shape[0]:
+                continue
+
+            # If y is inside the y boundary
+            if p[1] < max[1] and p[1] > max[1] + shape[1]:
+                continue
+
+            # If p equals max, it either IS max or a duplicate. Ignore it
+            if p[0] == max[0] and p[1] == max[1]:
+                continue
+
+            # Otherwise, hold onto it for a while
+            keep.append(p)
+
+        processing = keep
+
+    return matches
+
+
+def top_left(pts):
+    # Given a set of points, choose the one with the greatest y and least x
+    chosen = None
+    for p in pts:
+        if chosen is None or p[1] > chosen[1]:
+            chosen = p
+        elif p[1] == chosen[1] and p[0] < chosen[0]:
+            chosen = p
+    return chosen
 
 
 def remove_screenshot():
@@ -239,7 +307,7 @@ def find_object(object):
     return '_'
 
 
-def template_match_minimal(img, template):
+def template_match_minimal(img, template, threshold=0.6):
     if type(img) is str:
         img = cv2.imread(img)
 
@@ -250,16 +318,15 @@ def template_match_minimal(img, template):
     t_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
     res = cv2.matchTemplate(img_gray, t_gray, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.6
     loc = np.where(res >= threshold)
 
     pt = zip(*loc[::-1])
-    return pt, img, template
+    return list(pt), img, template
     # for pt in zip(*loc[::-1]):
     #   return pt, img, template
 
 
-def template_match_minimal_color(img, template):
+def template_match_minimal_color(img, template, threshold=0.8):
     if type(img) is str:
         img = cv2.imread(img)
 
@@ -267,7 +334,6 @@ def template_match_minimal_color(img, template):
         template = cv2.imread(template)
 
     res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.6
     loc = np.where(res >= threshold)
 
     for pt in zip(*loc[::-1]):
@@ -276,47 +342,54 @@ def template_match_minimal_color(img, template):
     return 0, img, template
 
 
+def find_emulator_screen(driver):
+    templates = ["digiblue_icon.png"]
+    return find_object_with_templates(driver, templates, threshold=0.1)
+
+
 def find_frogger_main_menu(driver):
-    template = TEMPLATE_DIR + "main_menu.png"
-    template = cv2.imread(template)
-
-    screen_cap = mss()
-    emu_region = {'top': driver.window_top, 'left': driver.window_left,
-                  'width': driver.window_width, 'height': driver.window_height}
-
-    while 1:
-        img = np.array(screen_cap.grab(emu_region))
-
-        pt, img_rgb, t = template_match_minimal(img, template)
-
-        cv2.imshow(driver.win_name, img_rgb)
-        cv2.waitKey(1)
-
-        if pt:
-            break
-
-    return True
+    templates = ["main_menu.png"]
+    return find_object_with_templates(driver, templates, threshold=0.9)
 
 
 def find_frogger_game_screen(driver):
-    # Actually, let's jsut find the frog
-    template = TEMPLATE_DIR + 'Time_Box.png'
-    template = cv2.imread(template)
+    # Actually, let's just find the frog
+    templates = ['Time_Box.png', 'Frog_transparent.png', 'Wall.png']
+    find_object_with_templates(driver, templates, threshold=0.5)
+
+
+def find_object_with_templates(driver, templates, color=False, threshold=0.8):
+    for t in range(len(templates)):
+        if type(templates[t]) is str:
+            templates[t] = cv2.imread(TEMPLATE_DIR + templates[t])
 
     screen_cap = mss()
     emu_region = {'top': driver.window_top, 'left': driver.window_left,
                   'width': driver.window_width, 'height': driver.window_height}
 
+    # Reversed the logic. Assume we will exit right away. If any of the above templates are not matched,
+    # make stop False. Thus, the loop will continue until no templates are not matched
+    # (Read: All templates are matched).
+    stop = True
     while 1:
         img = np.array(screen_cap.grab(emu_region))
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-        pt, img_rgb, t = template_match_minimal_color(img, template)
+        for t in templates:
+            if color:
+                pt, img_rgb, t = template_match_minimal_color(img, t, threshold=threshold)
+            else:
+                pt, img_rgb, t = template_match_minimal(img, t, threshold=threshold)
 
-        cv2.imshow(driver.win_name, img_rgb)
+            if not pt:
+                stop = False
+
+        if stop:
+            break
+        else:
+            stop = True
+
+        cv2.imshow(driver.win_name, img)
         cv2.waitKey(1)
 
-        if pt:
-            break
-
     return True
+
