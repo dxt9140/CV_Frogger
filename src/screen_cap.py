@@ -305,7 +305,7 @@ def find_object(object):
     return '_'
 
 
-def template_match_minimal(img, template):
+def template_match_minimal(img, template, threshold=0.6):
     if type(img) is str:
         img = cv2.imread(img)
 
@@ -316,16 +316,15 @@ def template_match_minimal(img, template):
     t_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
     res = cv2.matchTemplate(img_gray, t_gray, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.6
     loc = np.where(res >= threshold)
 
     pt = zip(*loc[::-1])
-    return pt, img, template
+    return list(pt), img, template
     # for pt in zip(*loc[::-1]):
     #   return pt, img, template
 
 
-def template_match_minimal_color(img, template):
+def template_match_minimal_color(img, template, threshold=0.6):
     if type(img) is str:
         img = cv2.imread(img)
 
@@ -333,13 +332,10 @@ def template_match_minimal_color(img, template):
         template = cv2.imread(template)
 
     res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.6
     loc = np.where(res >= threshold)
+    pt = zip(*loc[::-1])
 
-    for pt in zip(*loc[::-1]):
-        return pt, img, template
-
-    return 0, img, template
+    return list(pt), img, template
 
 
 def find_emulator_screen(driver):
