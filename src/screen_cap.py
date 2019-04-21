@@ -14,8 +14,10 @@ from definitions import TEMPLATE_DIR
 import PIL
 from pynput.keyboard import Controller, Key
 
+
 def dist(p1, p2):
     return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+
 
 def run(driver, Emulator):
     screen_cap = mss()
@@ -46,8 +48,9 @@ def run(driver, Emulator):
     #    templates = [TEMPLATE_DIR + 'Frog.png', TEMPLATE_DIR + 'Frog_Left.png', TEMPLATE_DIR + 'Frog_Right.png',
     # TEMPLATE_DIR + 'Frog_Down.png']
 
-    enemies = ['Car1.png', 'Car2.png', 'Car3.png', 'Car4.png', 'Danger.png']
-    surfaces = ['Wall.png', 'Start.png', 'Road.png', 'Gray_Toad.png']
+    enemies = ['Car1.png', 'Car2.png', 'Car3.png', 'Car4.png', 'Danger_small.png']
+    surfaces = ['Wall_small.png', 'Start_small.png', 'Road.png']
+    floaters = ['Gray_Toad_one.png', "Log_small.png", "Toad_one.png"]
     goal = ['Goal.png']
 
     found_frog = False
@@ -102,34 +105,108 @@ def run(driver, Emulator):
                 # return '_', '_', '_', '_'
 
         for template in surfaces:
-            pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
+            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.65)  # Don't change pls
             if pts:
-                pts_used = []
-                min_dist = 15
-                for pt in pts:
-                    distances = [dist(pt, p) < min_dist for p in pts_used]
-                    pts_used.append(pt)
-                    if any(distances):
-                        continue
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (255, 0, 0), 2)
+                ul = top_left(pts)
+                ur = get_upper_left_of_rightmost(pts)
+                cv2.rectangle(display, ul, (ur[0]+t.shape[1], ur[1]+t.shape[0]), (255, 255, 0), 1)
+
+        for template in floaters:
+            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.6)
+            if pts:
+                uniques = get_all_upper_lefts(pts, t.shape)
+                for pt in uniques:
+                    right_ul = get_sequential_rightmost(pts, pt, t.shape)
+                    cv2.rectangle(display, pt, (right_ul[0]+t.shape[1], right_ul[1]+t.shape[0]), (255, 255, 0), 1)
 
         for template in enemies:
-            pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template)
+            pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template, threshold=0.7)
             if pts:
-                pts_used = []
-                min_dist = 15
-                for pt in pts:
-                    distances = [dist(pt, p) < 5 for p in pts_used]
-                    pts_used.append(pt)
-                    if any(distances):
-                        continue
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 2)
+                uniques = get_all_upper_lefts(pts, t.shape)
+                for pt in uniques:
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 1)
+
+        for template in goal:
+            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.7)
+            if pts:
+                uniques = get_all_upper_lefts(pts, t.shape)
+                for pt in uniques:
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 255), 1)
+
         cv2.imshow(driver.win_name, display)
         cv2.waitKey(1)
 
         # play
         Emulator.pause()
-        print()
+
+
+def get_upper_left_of_rightmost(pts):
+    if type(pts) is tuple:
+        l = list()
+        l.append(pts)
+        processing = l
+    else:
+        processing = pts
+
+    pt = None
+    for p in processing:
+        if pt is None or p[1] < pt[1]:
+            pt = p
+        elif p[0] > pt[0]:
+            pt = p
+
+    return pt
+
+
+def get_sequential_rightmost(pts, ul, shape, bias=5):
+    left = ul
+    right = ul
+    for pt in pts:
+        if (pt[1] <= left[1] + bias and pt[1] >= left[1] - bias) \
+                and pt[0] >= left[0] and pt[0] <= left[0] + shape[0] + bias:
+            left = right
+            right = pt
+
+    return right
+
+
+def remove_sequential_matches(pts, ul, shape, bias=5):
+    keep = list()
+    left = ul
+    for pt in pts:
+        # If point is not a sequential match of the ul, keep it
+        # if pt[1] in range(left[1] - bias, left[1] + bias) \
+        #        and pt[0] >= left[0] and pt[0] <= left[0] + shape[0] + bias:
+        #    left = pt
+        #    continue
+
+        # If the distance between the point is a multiple of the shape, it is probably sequential
+        if pt[1] in range(left[1] - bias, left[1] + bias) and abs(pt[0]-ul[0]) % shape[0]+bias > bias:
+            continue
+
+        if pt[0] == ul[0] and pt[1] == ul[1]:
+            continue
+
+        keep.append(pt)
+
+    return keep
+
+
+def find_sequential_texture_upper_left(pts, shape):
+    if type(pts) is tuple:
+        l = list()
+        l.append(pts)
+        processing = l
+    else:
+        processing = pts
+
+    matches = list()
+    while processing:
+        left = top_left(pts)
+        matches.append(left)
+        processing = remove_sequential_matches(processing, left, shape)
+
+    return matches
 
 
 def get_all_upper_lefts(pts, shape):
@@ -150,15 +227,14 @@ def get_all_upper_lefts(pts, shape):
         max = top_left(processing)
         matches.append(max)
         for p in processing:
-            # If x is inside the x boundary
+            # if dist(max, p) < dist(max, (max[0]+shape[1], max[1]+shape[0])):
+            #    continue
             if p[0] > max[0] and p[0] < max[0] + shape[0]:
                 continue
 
-            # If y is inside the y boundary
-            if p[1] < max[1] and p[1] > max[1] + shape[1]:
+            if p[1] < max[1] and p[1] > max[1] - shape[1]:
                 continue
 
-            # If p equals max, it either IS max or a duplicate. Ignore it
             if p[0] == max[0] and p[1] == max[1]:
                 continue
 
