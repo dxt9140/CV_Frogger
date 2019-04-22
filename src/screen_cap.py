@@ -13,10 +13,14 @@ from definitions import OS
 from definitions import TEMPLATE_DIR
 import PIL
 from pynput.keyboard import Controller, Key
+import time
 
 
 def dist(p1, p2):
     return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+def overlap(r1p1, r1p2, r2p1, r2p2):
+    print(r1p1, r1p2, r2p1, r2p2)
+    return (r1p1[1] < r2p2[1]) and (r1p2[1] > r2p1[1]) and (r1p1[0] < r2p2[0]) and (r1p2[0] > r2p1[0])
 
 
 def run(driver, Emulator):
@@ -43,7 +47,7 @@ def run(driver, Emulator):
     # img = '../Screenshots/Frogger_1983_Konami_J_0000.png'
 
     # if OS in ['Linux', 'Darwin', 'Windows']:
-    frogs = ['Frog.png', 'Frog_Left.png', 'Frog_Right.png', 'Frog_Down.png']
+    frogs = ['Frog.png', 'Frog_Left.png', 'Frog_Right.png', 'Frog_Down.png', 'Frog_transparent.png']
     # elif OS in ['Windows']:
     #    templates = [TEMPLATE_DIR + 'Frog.png', TEMPLATE_DIR + 'Frog_Left.png', TEMPLATE_DIR + 'Frog_Right.png',
     # TEMPLATE_DIR + 'Frog_Down.png']
@@ -53,19 +57,27 @@ def run(driver, Emulator):
     floaters = ['Gray_Toad_one.png', "Log_small.png", "Toad_one.png"]
     goal = ['Goal.png']
 
-    found_frog = False
-
     while 1:
+        found_frog = False
+        
         img = cv2.cvtColor(np.array(screen_cap.grab(emu_region)), cv2.COLOR_BGRA2BGR)
         display = img.copy()
 
         # pause
+        print("\nTick started...")
         Emulator.pause()
 
         up = ''
         down = ''
         left = ''
         right = ''
+        
+        lfrog = None
+        rfrog = None
+        lfrog_up = None
+        rfrog_up = None
+        
+        up_okay = True
 
         # find the frog (it can be facing up, left, right and down)
         for template in frogs:
@@ -73,7 +85,12 @@ def run(driver, Emulator):
             pts = list(pts)
             if len(pts) != 0:
                 pt = pts[0]
-                cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 0), -1)
+                lfrog = pt
+                rfrog = (pt[0]+t.shape[1], pt[1]+t.shape[0])
+                lfrog_up = (pt[0], pt[1]-t.shape[0]-1)
+                rfrog_up = (pt[0]+t.shape[0], pt[1]-1)
+                cv2.rectangle(display, lfrog, rfrog, (0, 255, 0), -1)
+                cv2.rectangle(display, lfrog_up, rfrog_up, (0, 255, 0), 1)
                 # up, down, left, right = match_neighbors(pt, img_rbg, t)
                 found_frog = True
                 break
@@ -104,20 +121,20 @@ def run(driver, Emulator):
                 # remove_screenshot()
                 # return '_', '_', '_', '_'
 
-        for template in surfaces:
-            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.65)  # Don't change pls
-            if pts:
-                ul = top_left(pts)
-                ur = get_upper_left_of_rightmost(pts)
-                cv2.rectangle(display, ul, (ur[0]+t.shape[1], ur[1]+t.shape[0]), (255, 255, 0), 1)
+        # for template in surfaces:
+            # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.95)  # Don't change pls
+            # if pts:
+                # ul = top_left(pts)
+                # ur = get_upper_left_of_rightmost(pts)
+                # cv2.rectangle(display, ul, (ur[0]+t.shape[1], ur[1]+t.shape[0]), (255, 255, 0), 1)
 
-        for template in floaters:
-            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.6)
-            if pts:
-                uniques = get_all_upper_lefts(pts, t.shape)
-                for pt in uniques:
-                    right_ul = get_sequential_rightmost(pts, pt, t.shape)
-                    cv2.rectangle(display, pt, (right_ul[0]+t.shape[1], right_ul[1]+t.shape[0]), (255, 255, 0), 1)
+        # for template in floaters:
+            # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.9)
+            # if pts:
+                # uniques = get_all_upper_lefts(pts, t.shape)
+                # for pt in uniques:
+                    # right_ul = get_sequential_rightmost(pts, pt, t.shape)
+                    # cv2.rectangle(display, pt, (right_ul[0]+t.shape[1], right_ul[1]+t.shape[0]), (255, 255, 0), 1)
 
         for template in enemies:
             pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template, threshold=0.7)
@@ -125,19 +142,27 @@ def run(driver, Emulator):
                 uniques = get_all_upper_lefts(pts, t.shape)
                 for pt in uniques:
                     cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 1)
+                    if found_frog:
+                        if overlap(lfrog_up, rfrog_up, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0])):
+                            up_okay = False
+                    
 
-        for template in goal:
-            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.7)
-            if pts:
-                uniques = get_all_upper_lefts(pts, t.shape)
-                for pt in uniques:
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 255), 1)
+        # for template in goal:
+            # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.7)
+            # if pts:
+                # uniques = get_all_upper_lefts(pts, t.shape)
+                # for pt in uniques:
+                    # cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 255), 1)
 
         cv2.imshow(driver.win_name, display)
-        cv2.waitKey(1)
+        cv2.waitKey(3)
 
         # play
         Emulator.pause()
+        if up_okay:
+            Emulator.up()
+        time.sleep(0.2)
+        
 
 
 def get_upper_left_of_rightmost(pts):
@@ -280,7 +305,7 @@ def template_match(img, template):
 
     t = cv2.imread(template, 0)
     res = cv2.matchTemplate(img_gray, t, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.6
+    threshold = 0.9
     loc = np.where(res >= threshold)
 
     for pt in zip(*loc[::-1]):
@@ -360,7 +385,7 @@ def find_object(object):
         t = cv2.cvtColor(object, cv2.COLOR_BGR2GRAY)
 
         res = cv2.matchTemplate(img_gray, t, cv2.TM_CCOEFF_NORMED)
-        threshold = 0.6
+        threshold = 0.9
         loc = np.where(res >= threshold)
 
         for pt in zip(*loc[::-1]):
@@ -381,7 +406,7 @@ def find_object(object):
     return '_'
 
 
-def template_match_minimal(img, template, threshold=0.6):
+def template_match_minimal(img, template, threshold=0.9):
     if type(img) is str:
         img = cv2.imread(img)
 
@@ -400,7 +425,7 @@ def template_match_minimal(img, template, threshold=0.6):
     #   return pt, img, template
 
 
-def template_match_minimal_color(img, template, threshold=0.6):
+def template_match_minimal_color(img, template, threshold=0.9):
     if type(img) is str:
         img = cv2.imread(img)
 

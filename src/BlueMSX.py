@@ -4,6 +4,7 @@ from pynput.keyboard import Controller, Key
 import shutil
 import subprocess
 from definitions import PROJECT_DIR
+import time
 
 
 class BlueMSX(threading.Thread):
@@ -57,3 +58,10 @@ class BlueMSX(threading.Thread):
         for key in keys:
             self.kb.press(key)
             self.kb.release(key)
+    
+    def up(self):
+        time.sleep(0.010)
+        self.kb.press('w')
+        time.sleep(0.020)
+        self.kb.release('w')
+        time.sleep(0.010)
