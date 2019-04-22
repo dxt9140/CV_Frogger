@@ -60,7 +60,7 @@ class BlueMSX(threading.Thread):
             self.kb.release(key)
     
     def up(self):
-        time.sleep(0.010)
+        #time.sleep(0.010)
         self.kb.press('w')
         time.sleep(0.020)
         self.kb.release('w')

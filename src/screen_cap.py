@@ -19,7 +19,6 @@ import time
 def dist(p1, p2):
     return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
 def overlap(r1p1, r1p2, r2p1, r2p2):
-    print(r1p1, r1p2, r2p1, r2p2)
     return (r1p1[1] < r2p2[1]) and (r1p2[1] > r2p1[1]) and (r1p1[0] < r2p2[0]) and (r1p2[0] > r2p1[0])
 
 
@@ -52,20 +51,22 @@ def run(driver, Emulator):
     #    templates = [TEMPLATE_DIR + 'Frog.png', TEMPLATE_DIR + 'Frog_Left.png', TEMPLATE_DIR + 'Frog_Right.png',
     # TEMPLATE_DIR + 'Frog_Down.png']
 
-    enemies = ['Car1.png', 'Car2.png', 'Car3.png', 'Car4.png', 'Danger_small.png']
+    enemies = ['Car1.png', 'Car2.png', 'Car3.png', 'Car4.png', 'Danger_small.png', 'Frog_win.png']
     surfaces = ['Wall_small.png', 'Start_small.png', 'Road.png']
     floaters = ['Gray_Toad_one.png', "Log_small.png", "Toad_one.png"]
+    good_floaters_and_goal = ['Toad_one.png', 'Gray_Toad_one.png' , 'log_small.png', 'Goal.png']
     goal = ['Goal.png']
 
     while 1:
-        found_frog = False
-        
-        img = cv2.cvtColor(np.array(screen_cap.grab(emu_region)), cv2.COLOR_BGRA2BGR)
-        display = img.copy()
 
         # pause
         print("\nTick started...")
         Emulator.pause()
+        
+        found_frog = False
+        
+        img = cv2.cvtColor(np.array(screen_cap.grab(emu_region)), cv2.COLOR_BGRA2BGR)
+        display = img.copy()
 
         up = ''
         down = ''
@@ -78,19 +79,42 @@ def run(driver, Emulator):
         rfrog_up = None
         
         up_okay = True
+        up_is_water = False
+        up_is_toad = False
 
         # find the frog (it can be facing up, left, right and down)
         for template in frogs:
             pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + template, threshold=0.6)
             pts = list(pts)
+            # if len(pts) == 0:
+                # pts, img_rbg, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.6)
+                # pts = list(pts)
             if len(pts) != 0:
                 pt = pts[0]
                 lfrog = pt
                 rfrog = (pt[0]+t.shape[1], pt[1]+t.shape[0])
-                lfrog_up = (pt[0], pt[1]-t.shape[0]-1)
-                rfrog_up = (pt[0]+t.shape[0], pt[1]-1)
+                lfrog_up = (pt[0], pt[1]-t.shape[0]-2)
+                rfrog_up = (pt[0]+t.shape[1], pt[1]-7)
                 cv2.rectangle(display, lfrog, rfrog, (0, 255, 0), -1)
                 cv2.rectangle(display, lfrog_up, rfrog_up, (0, 255, 0), 1)
+                #print("Max: " + str(np.max(display[lfrog_up[0]:rfrog_up[0],lfrog_up[1]:rfrog_up[1],0])))
+                print("Blue Max: " + str(np.max(display[lfrog_up[1]:rfrog_up[1],lfrog_up[0]:rfrog_up[0],0])))
+                if np.max(display[lfrog_up[1]:rfrog_up[1],lfrog_up[0]:rfrog_up[0],0]) > 240:
+                            print("Water collision detected!")
+                            up_is_water = True
+                            up_okay = False
+                            y = rfrog_up[0]+1
+                            x = rfrog_up[1]+1
+                # for x in range(lfrog_up[1], rfrog_up[1]):
+                    # for y in range(lfrog_up[0], rfrog_up[0]):
+                        # pixel = display[y,x]
+                        # if int(pixel[0]) > 200 and pixel[1] < 30 and pixel[2] < 30:
+                            # #print(pixel, x, y)
+                            # print("Water collision detected!")
+                            # up_is_water = True
+                            # up_okay = False
+                            # y = rfrog_up[0]+1
+                            # x = rfrog_up[1]+1
                 # up, down, left, right = match_neighbors(pt, img_rbg, t)
                 found_frog = True
                 break
@@ -108,10 +132,11 @@ def run(driver, Emulator):
         else:
             # no frog found, there might be a dead frog
             # if it is a dead frog, it will return Dead Frog and _ for others
-            pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + 'Dead_Frog.png')
+            pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + 'Dead_Frog.png', threshold=0.7)
             if pts:
                 pt = pts[0]
                 print("Dead Frog Found at " + str(pt))
+                up_okay = False
                 cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 0), 1)
                 # remove_screenshot()
                 # return 'Dead Frog', '_', '_', '_'
@@ -128,23 +153,34 @@ def run(driver, Emulator):
                 # ur = get_upper_left_of_rightmost(pts)
                 # cv2.rectangle(display, ul, (ur[0]+t.shape[1], ur[1]+t.shape[0]), (255, 255, 0), 1)
 
-        # for template in floaters:
-            # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.9)
-            # if pts:
-                # uniques = get_all_upper_lefts(pts, t.shape)
-                # for pt in uniques:
-                    # right_ul = get_sequential_rightmost(pts, pt, t.shape)
-                    # cv2.rectangle(display, pt, (right_ul[0]+t.shape[1], right_ul[1]+t.shape[0]), (255, 255, 0), 1)
+        #if up_is_water:
+        for template in good_floaters_and_goal:
+            wadj = 5 if template[0] == 'G' else 5
+            pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.7)
+            if pts:
+                uniques = get_all_upper_lefts(pts, t.shape)
+                for pt in uniques:
+                    right_ul = get_sequential_rightmost(pts, pt, t.shape)
+                    cv2.rectangle(display, (pt[0]+wadj,pt[1]), (right_ul[0]+t.shape[1]-wadj, right_ul[1]+t.shape[0]), (255, 255, 0), 1)
+                    if found_frog and up_is_water and not up_okay:
+                        if overlap(lfrog_up, rfrog_up, (pt[0]+wadj,pt[1]), (right_ul[0]+t.shape[1]-wadj, right_ul[1]+t.shape[0])):
+                            print("Predicted safe footing!")
+                            up_okay = True
+                            if template[0] == 'T':
+                                up_is_toad = True
 
         for template in enemies:
+            wadj = 5 if template[0] == 'C' else 0
             pts, img, t = template_match_minimal(img, TEMPLATE_DIR + template, threshold=0.7)
             if pts:
                 uniques = get_all_upper_lefts(pts, t.shape)
                 for pt in uniques:
-                    cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 255), 1)
-                    if found_frog:
-                        if overlap(lfrog_up, rfrog_up, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0])):
+                    cv2.rectangle(display, pt, (pt[0]+t.shape[1]+wadj, pt[1]+t.shape[0]), (0, 0, 255), 1)
+                    if found_frog and up_okay:
+                        if overlap(lfrog_up, rfrog_up, pt, (pt[0]+t.shape[1]+wadj, pt[1]+t.shape[0])):
+                            print("Predicted enemy collision!")
                             up_okay = False
+                            
                     
 
         # for template in goal:
@@ -155,13 +191,18 @@ def run(driver, Emulator):
                     # cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 255, 255), 1)
 
         cv2.imshow(driver.win_name, display)
-        cv2.waitKey(3)
+        cv2.waitKey(1)
 
         # play
         Emulator.pause()
-        if up_okay:
+        if found_frog and up_okay:
+            print("Proceeding.")
             Emulator.up()
-        time.sleep(0.2)
+            if up_is_toad:
+                time.sleep(1)
+                Emulator.up()
+                up_is_toad = False
+        time.sleep(0.050)
         
 
 
