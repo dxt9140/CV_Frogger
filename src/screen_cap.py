@@ -99,12 +99,6 @@ def run(driver, Emulator):
         # if there aren't any object or it cannot be matched, it will return _
         if found_frog:
             print("Found frog!")
-            # print("Up\t" + up)
-            # print("Down\t" + down)
-            # print("Right\t" + right)
-            # print("Left\t" + left)
-            # remove_screenshot()
-            # return up, down, right, left
         else:
             # no frog found, there might be a dead frog
             # if it is a dead frog, it will return Dead Frog and _ for others
@@ -113,13 +107,8 @@ def run(driver, Emulator):
                 pt = pts[0]
                 print("Dead Frog Found at " + str(pt))
                 cv2.rectangle(display, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0]), (0, 0, 0), 1)
-                # remove_screenshot()
-                # return 'Dead Frog', '_', '_', '_'
             else:
-                # no frog detected, return all _
                 print("No Frog Found")
-                # remove_screenshot()
-                # return '_', '_', '_', '_'
 
         # for template in surfaces:
             # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.95)  # Don't change pls
@@ -145,7 +134,6 @@ def run(driver, Emulator):
                     if found_frog:
                         if overlap(lfrog_up, rfrog_up, pt, (pt[0]+t.shape[1], pt[1]+t.shape[0])):
                             up_okay = False
-                    
 
         # for template in goal:
             # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.7)
@@ -163,7 +151,6 @@ def run(driver, Emulator):
             Emulator.up()
         time.sleep(0.2)
         
-
 
 def get_upper_left_of_rightmost(pts):
     if type(pts) is tuple:

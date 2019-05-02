@@ -65,3 +65,33 @@ class BlueMSX(threading.Thread):
         time.sleep(0.020)
         self.kb.release('w')
         time.sleep(0.010)
+
+    def down(self):
+        time.sleep(0.010)
+        self.kb.press('s')
+        time.sleep(0.020)
+        self.kb.release('s')
+        time.sleep(0.010)
+
+    def left(self):
+        time.sleep(0.010)
+        self.kb.press('a')
+        time.sleep(0.020)
+        self.kb.release('a')
+        time.sleep(0.010)
+
+    def right(self):
+        time.sleep(0.010)
+        self.kb.press('d')
+        time.sleep(0.020)
+        self.kb.release('d')
+        time.sleep(0.010)
+
+
+
+
+
+
+
+
+
