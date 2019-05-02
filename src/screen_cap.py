@@ -38,13 +38,6 @@ def run(driver, Emulator):
     #
     # cv2.destroyAllWindows()
 
-    # get the game screen
-    # this will create a Screenshots folder and save the game screen as a .png file
-    # Emulator.take_screenshot()
-
-    # grab the screen shot and delete when it is done
-    # img = '../Screenshots/Frogger_1983_Konami_J_0000.png'
-
     # if OS in ['Linux', 'Darwin', 'Windows']:
     frogs = ['Frog.png', 'Frog_Left.png', 'Frog_Right.png', 'Frog_Down.png', 'Frog_transparent.png']
     # elif OS in ['Windows']:
@@ -86,9 +79,6 @@ def run(driver, Emulator):
         for template in frogs:
             pts, img_rbg, t = template_match_minimal(img, TEMPLATE_DIR + template, threshold=0.6)
             pts = list(pts)
-            # if len(pts) == 0:
-                # pts, img_rbg, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.6)
-                # pts = list(pts)
             if len(pts) != 0:
                 pt = pts[0]
                 lfrog = pt
@@ -97,7 +87,7 @@ def run(driver, Emulator):
                 rfrog_up = (pt[0]+t.shape[1], pt[1]-7)
                 cv2.rectangle(display, lfrog, rfrog, (0, 255, 0), -1)
                 cv2.rectangle(display, lfrog_up, rfrog_up, (0, 255, 0), 1)
-                #print("Max: " + str(np.max(display[lfrog_up[0]:rfrog_up[0],lfrog_up[1]:rfrog_up[1],0])))
+                # print("Max: " + str(np.max(display[lfrog_up[0]:rfrog_up[0],lfrog_up[1]:rfrog_up[1],0])))
                 print("Blue Max: " + str(np.max(display[lfrog_up[1]:rfrog_up[1],lfrog_up[0]:rfrog_up[0],0])))
                 if np.max(display[lfrog_up[1]:rfrog_up[1],lfrog_up[0]:rfrog_up[0],0]) > 240:
                             print("Water collision detected!")
@@ -136,13 +126,13 @@ def run(driver, Emulator):
                 print("No Frog Found")
 
         # for template in surfaces:
-            # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.95)  # Don't change pls
+            # pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.95)# Don't change pls
             # if pts:
                 # ul = top_left(pts)
                 # ur = get_upper_left_of_rightmost(pts)
                 # cv2.rectangle(display, ul, (ur[0]+t.shape[1], ur[1]+t.shape[0]), (255, 255, 0), 1)
 
-        #if up_is_water:
+        # if up_is_water:
         for template in good_floaters_and_goal:
             wadj = 5 if template[0] == 'G' else 5
             pts, img, t = template_match_minimal_color(img, TEMPLATE_DIR + template, threshold=0.7)
